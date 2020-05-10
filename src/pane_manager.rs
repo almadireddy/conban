@@ -172,6 +172,5 @@ impl PaneManager {
             }
             _ => {}
         }
-        // easy.refresh();
     }
 }
