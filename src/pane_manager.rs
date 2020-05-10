@@ -123,19 +123,19 @@ impl PaneManager {
 
         // TODO: Configurable keybindings
         match easy.get_input().unwrap() {
-            Input::KeyLeft => {
+            Input::KeyLeft | Input::Character('h') => {
                 if self.selected_pane > 1 {
                     self.selected_pane -= 1;
                     self.selected_item = 0;
                 }
             },
-            Input::KeyDown => {
+            Input::KeyDown | Input::Character('j') => {
                 self.selected_item += 1;
             }
-            Input::KeyUp => {
+            Input::KeyUp | Input::Character('k') => {
                 self.selected_item -= 1;
             }
-            Input::KeyRight => {
+            Input::KeyRight | Input::Character('l') => {
                 if self.selected_pane < 3 {
                     self.selected_pane += 1;
                     self.selected_item = 0;
