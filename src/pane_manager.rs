@@ -117,6 +117,9 @@ impl PaneManager {
         easy.move_rc(0, (self.right_divider + col_count) / 2 - (done_title.len() as i32) / 2);
         easy.print("Done");
 
+        easy.move_rc(row_count-1 , self.right_divider + 2);
+        easy.print(format!("{} {}", "Last Deleted:", kanban.last_deleted.name));
+
         self.render_lists(easy, kanban);
         self.render_panes(easy);
 
@@ -139,9 +142,25 @@ impl PaneManager {
                     self.selected_pane += 1;
                     self.selected_item = 0;
                 }
-            },
+            }
             Input::Character(c) => {
                 match c {
+                    'x' => {
+                        let mut s: Item = Item { name: "<none>".to_string() };
+                        match self.selected_pane {
+                            1 => {
+                                s = kanban.todo.remove(self.selected_item as usize);
+                            }
+                            2 => {
+                                s = kanban.working.remove(self.selected_item as usize);
+                            }
+                            3 => {
+                                s = kanban.done.remove(self.selected_item as usize);
+                            }
+                            _ => {}
+                        }
+                        kanban.last_deleted = s;
+                    }
                     'w' => {
                         if self.selected_item > 0 {
                             match self.selected_pane {

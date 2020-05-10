@@ -18,13 +18,15 @@ struct Kanban {
     pub todo: Vec<Item>,
     pub working: Vec<Item>,
     pub done: Vec<Item>,
+    pub last_deleted: Item
 }
 
 fn initialize_sample_data() -> Kanban {
     let mut kanban: Kanban = Kanban {
         todo: vec![],
         working: vec![],
-        done: vec![]
+        done: vec![],
+        last_deleted: Item{name: String::from("<none>") }
     };
 
     let mut todo_items: Vec<Item> = Vec::new();
