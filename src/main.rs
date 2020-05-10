@@ -53,7 +53,6 @@ fn main() {
 
     easy.set_keypad_enabled(true);
     easy.set_input_mode(InputMode::Character);
-
     easy.set_color_pair(ColorPair::new(Color::White, Color::Black));
     easy.set_bold(false);
 
