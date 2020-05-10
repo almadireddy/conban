@@ -8,7 +8,7 @@ use std::process::exit;
 use std::path::Component::CurDir;
 use pane_manager::PaneManager;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Item {
     name: String
 }

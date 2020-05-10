@@ -26,23 +26,17 @@ impl PaneManager {
         };
     }
 
-    pub fn set_selected_pane(&mut self, s: i32) {
-        self.selected_pane = s;
-    }
-
-    pub fn set_selected_item(&mut self, s: i32) {
-        self.selected_item = s;
-    }
-
     fn render_lists(&mut self, easy: &mut EasyCurses, kanban: &mut Kanban) {
         // TODO: find a way to generalize this
         for (pos, i) in (&kanban.todo).iter().enumerate() {
             easy.move_rc((pos as i32) + 2, 1);
 
             if pos == self.selected_item as usize && self.selected_pane == 1 {
-                easy.print(format!("> {} ", i.name));
+                easy.set_color_pair(ColorPair::new(Color::Magenta, Color::White));
+                easy.print(format!(" {} ", i.name));
+                easy.set_color_pair(ColorPair::new(Color::White, Color::Black));
             } else {
-                easy.print(format!("  {} ", i.name));
+                easy.print(format!(" {} ", i.name));
             }
         }
 
@@ -50,9 +44,11 @@ impl PaneManager {
             easy.move_rc((pos as i32 + 2), self.left_divider + 2);
 
             if pos == self.selected_item as usize && self.selected_pane == 2 {
-                easy.print(format!("> {} ", i.name));
+                easy.set_color_pair(ColorPair::new(Color::Magenta, Color::White));
+                easy.print(format!(" {} ", i.name));
+                easy.set_color_pair(ColorPair::new(Color::White, Color::Black));
             } else {
-                easy.print(format!("  {} ", i.name));
+                easy.print(format!(" {} ", i.name));
             }
         }
 
@@ -60,9 +56,11 @@ impl PaneManager {
             easy.move_rc((pos as i32) + 2, self.right_divider + 2);
 
             if pos == self.selected_item as usize && self.selected_pane == 3 {
-                easy.print(format!("> {} ", i.name));
+                easy.set_color_pair(ColorPair::new(Color::Magenta, Color::White));
+                easy.print(format!(" {} ", i.name));
+                easy.set_color_pair(ColorPair::new(Color::White, Color::Black));
             } else {
-                easy.print(format!("  {} ", i.name));
+                easy.print(format!(" {} ", i.name));
             }
         }
     }
@@ -102,6 +100,7 @@ impl PaneManager {
     }
 
     pub fn render(&mut self, easy: &mut EasyCurses, kanban: &mut Kanban) {
+        easy.clear();
         let (row_count, col_count) = easy.get_row_col_count();
 
         // Render the titles (centered in pane)
@@ -143,6 +142,80 @@ impl PaneManager {
             },
             Input::Character(c) => {
                 match c {
+                    'w' => {
+                        match self.selected_pane {
+                            1 => {
+                                let s = kanban.todo.remove(self.selected_item as usize);
+                                kanban.todo.insert(self.selected_item as usize - 1, s);
+                                self.selected_item -= 1;
+                            }
+                            2 => {
+                                let s = kanban.working.remove(self.selected_item as usize);
+                                kanban.working.insert(self.selected_item as usize - 1, s);
+                                self.selected_item -= 1;
+                            }
+                            3 => {
+                                let s = kanban.working.remove(self.selected_item as usize);
+                                kanban.working.insert(self.selected_item as usize - 1, s);
+                                self.selected_item -= 1;
+                            }
+                            _ => {}
+                        }
+                    }
+                    's' => {
+                        match self.selected_pane {
+                            1 => {
+                                let s = kanban.todo.remove(self.selected_item as usize);
+                                kanban.todo.insert(self.selected_item as usize + 1, s);
+                                self.selected_item += 1;
+                            }
+                            2 => {
+                                let s = kanban.working.remove(self.selected_item as usize);
+                                kanban.working.insert(self.selected_item as usize + 1, s);
+                                self.selected_item += 1;
+                            }
+                            3 => {
+                                let s = kanban.working.remove(self.selected_item as usize);
+                                kanban.working.insert(self.selected_item as usize + 1, s);
+                                self.selected_item += 1;
+                            }
+                            _ => {}
+                        }
+                    }
+                    'd' => {
+                        match self.selected_pane {
+                            1 => {
+                                let s = kanban.todo.remove(self.selected_item as usize);
+                                kanban.working.push(s);
+                                self.selected_pane += 1;
+                                self.selected_item = kanban.working.len() as i32 - 1;
+                            }
+                            2 => {
+                                let s = kanban.working.remove(self.selected_item as usize);
+                                kanban.done.push(s);
+                                self.selected_pane += 1;
+                                self.selected_item = kanban.done.len() as i32 - 1;
+                            }
+                            _ => {}
+                        }
+                    }
+                    'a' => {
+                        match self.selected_pane {
+                            2 => {
+                                let s = kanban.working.remove(self.selected_item as usize);
+                                kanban.todo.push(s);
+                                self.selected_pane -= 1;
+                                self.selected_item = kanban.todo.len() as i32 - 1;
+                            }
+                            3 => {
+                                let s = kanban.done.remove(self.selected_item as usize);
+                                kanban.working.push(s);
+                                self.selected_pane -= 1;
+                                self.selected_item = kanban.working.len() as i32 - 1;
+                            }
+                            _ => {}
+                        }
+                    }
                     'i' => {
                         let insert_prompt = String::from(" New item: ");
                         let mut inp = String::new();
