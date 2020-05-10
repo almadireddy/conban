@@ -35,6 +35,7 @@ impl PaneManager {
     }
 
     fn render_lists(&mut self, easy: &mut EasyCurses, kanban: &mut Kanban) {
+        // TODO: find a way to generalize this
         for (pos, i) in (&kanban.todo).iter().enumerate() {
             easy.move_rc((pos as i32) + 2, 1);
 
@@ -103,6 +104,7 @@ impl PaneManager {
     pub fn render(&mut self, easy: &mut EasyCurses, kanban: &mut Kanban) {
         let (row_count, col_count) = easy.get_row_col_count();
 
+        // Render the titles (centered in pane)
         let todo_title = String::from("Todo");
         easy.move_rc(0, self.left_divider / 2 - (todo_title.len() as i32) / 2);
         easy.print(todo_title);
@@ -119,6 +121,7 @@ impl PaneManager {
         self.render_lists(easy, kanban);
         self.render_panes(easy);
 
+        // TODO: Configurable keybindings
         match easy.get_input().unwrap() {
             Input::KeyLeft => {
                 if self.selected_pane > 1 {
