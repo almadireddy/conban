@@ -143,41 +143,49 @@ impl PaneManager {
             Input::Character(c) => {
                 match c {
                     'w' => {
-                        match self.selected_pane {
-                            1 => {
-                                let s = kanban.todo.remove(self.selected_item as usize);
-                                kanban.todo.insert(self.selected_item as usize - 1, s);
-                                self.selected_item -= 1;
+                        if self.selected_item > 0 {
+                            match self.selected_pane {
+                                1 => {
+                                    let s = kanban.todo.remove(self.selected_item as usize);
+                                    kanban.todo.insert(self.selected_item as usize - 1, s);
+                                    self.selected_item -= 1;
+                                }
+                                2 => {
+                                    let s = kanban.working.remove(self.selected_item as usize);
+                                    kanban.working.insert(self.selected_item as usize - 1, s);
+                                    self.selected_item -= 1;
+                                }
+                                3 => {
+                                    let s = kanban.done.remove(self.selected_item as usize);
+                                    kanban.done.insert(self.selected_item as usize - 1, s);
+                                    self.selected_item -= 1;
+                                }
+                                _ => {}
                             }
-                            2 => {
-                                let s = kanban.working.remove(self.selected_item as usize);
-                                kanban.working.insert(self.selected_item as usize - 1, s);
-                                self.selected_item -= 1;
-                            }
-                            3 => {
-                                let s = kanban.working.remove(self.selected_item as usize);
-                                kanban.working.insert(self.selected_item as usize - 1, s);
-                                self.selected_item -= 1;
-                            }
-                            _ => {}
                         }
                     }
                     's' => {
                         match self.selected_pane {
                             1 => {
-                                let s = kanban.todo.remove(self.selected_item as usize);
-                                kanban.todo.insert(self.selected_item as usize + 1, s);
-                                self.selected_item += 1;
+                                if self.selected_item < kanban.todo.len() as i32 - 1 {
+                                    let s = kanban.todo.remove(self.selected_item as usize);
+                                    kanban.todo.insert(self.selected_item as usize + 1, s);
+                                    self.selected_item += 1;
+                                }
                             }
                             2 => {
-                                let s = kanban.working.remove(self.selected_item as usize);
-                                kanban.working.insert(self.selected_item as usize + 1, s);
-                                self.selected_item += 1;
+                                if self.selected_item < kanban.working.len() as i32 - 1 {
+                                    let s = kanban.working.remove(self.selected_item as usize);
+                                    kanban.working.insert(self.selected_item as usize + 1, s);
+                                    self.selected_item += 1;
+                                }
                             }
                             3 => {
-                                let s = kanban.working.remove(self.selected_item as usize);
-                                kanban.working.insert(self.selected_item as usize + 1, s);
-                                self.selected_item += 1;
+                                if self.selected_item < kanban.done.len() as i32 - 1 {
+                                    let s = kanban.done.remove(self.selected_item as usize);
+                                    kanban.done.insert(self.selected_item as usize + 1, s);
+                                    self.selected_item += 1;
+                                }
                             }
                             _ => {}
                         }
