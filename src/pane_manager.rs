@@ -2,7 +2,7 @@ extern crate easycurses;
 use crate::Kanban;
 use crate::Item;
 
-use easycurses::{EasyCurses, Input, CursorVisibility};
+use easycurses::{EasyCurses, Input, CursorVisibility, ColorPair, Color};
 
 pub struct PaneManager {
     pub left_divider: i32,
@@ -19,7 +19,7 @@ impl PaneManager {
         return PaneManager {
             left_divider: left_loc,
             right_divider: right_loc,
-            selected_pane: 0,
+            selected_pane: 1,
             selected_item: 0
         };
     }
@@ -32,69 +32,108 @@ impl PaneManager {
         self.selected_item = s;
     }
 
-    pub fn render(&mut self, easy: &mut EasyCurses, kanban: &mut Kanban) {
-        let mut cur_loc: i32 = 0;
+    fn render_lists(&mut self, easy: &mut EasyCurses, kanban: &mut Kanban) {
         let (row_count, col_count) = easy.get_row_col_count();
 
-        for i in 0..row_count {
+        for (pos, i) in (&kanban.todo).iter().enumerate() {
+            easy.move_rc(pos as i32, 1);
+
+            if pos == self.selected_item as usize && self.selected_pane == 1 {
+                easy.print(format!("> {} ", i.name));
+            } else {
+                easy.print(format!("  {} ", i.name));
+            }
+        }
+
+        for (pos, i) in (&kanban.working).iter().enumerate() {
+            easy.move_rc(pos as i32, self.left_divider + 2);
+
+            if pos == self.selected_item as usize && self.selected_pane == 2 {
+                easy.print(format!("> {} ", i.name));
+            } else {
+                easy.print(format!("  {} ", i.name));
+            }
+        }
+
+        for (pos, i) in (&kanban.done).iter().enumerate() {
+            easy.move_rc(pos as i32, self.right_divider + 2);
+
+            if pos == self.selected_item as usize && self.selected_pane == 3 {
+                easy.print(format!("> {} ", i.name));
+            } else {
+                easy.print(format!("  {} ", i.name));
+            }
+        }
+    }
+
+    fn render_panes(&self, easy: &mut EasyCurses) {
+        let (row_count, col_count) = easy.get_row_col_count();
+
+        for i in 0..row_count - 1 {
             easy.move_rc(i, self.left_divider);
-            easy.print("|");
+            easy.print("\u{2503}");
             easy.move_rc(i, self.right_divider);
-            easy.print("|");
+            easy.print("\u{2503}");
         }
 
-        for i in &kanban.todo {
-            easy.move_rc(cur_loc, 1);
-            easy.print(i.name.as_str());
-            cur_loc += 1;
+        easy.move_rc(row_count - 2, 0);
+        easy.delete_line();
+        for i in 0..col_count - 1 {
+            if i == self.left_divider + 1 || i == self.right_divider + 1 {
+                easy.print("\u{253B}");
+            } else {
+                easy.print("\u{2501}");
+            }
+            easy.move_rc(row_count - 2, i);
         }
+    }
 
-        cur_loc = 0;
+    pub fn render(&mut self, easy: &mut EasyCurses, kanban: &mut Kanban) {
+        let (row_count, col_count) = easy.get_row_col_count();
+        self.render_lists(easy, kanban);
+        self.render_panes(easy);
 
-        for i in &kanban.working {
-            easy.move_rc(cur_loc, self.left_divider + 2);
-            easy.print(i.name.as_str());
-            cur_loc += 1;
-        }
-
-        cur_loc = 0;
-
-        for i in &kanban.done {
-            easy.move_rc(cur_loc, self.right_divider + 2);
-            easy.print(i.name.as_str());
-            cur_loc += 1;
-        }
-
-        easy.refresh();
         match easy.get_input().unwrap() {
             Input::KeyLeft => {
-                kanban.todo.push(Item{
-                    name: String::from("Key left pressed")
-                });
+                if self.selected_pane > 1 {
+                    self.selected_pane -= 1;
+                    self.selected_item = 0;
+                }
             },
+            Input::KeyDown => {
+                easy.delete_line();
+                self.selected_item += 1;
+            }
+            Input::KeyUp => {
+                easy.delete_line();
+                self.selected_item -= 1;
+            }
             Input::KeyRight => {
-                kanban.working.push(Item{
-                    name: String::from("Key right pressed")
-                });
+                if self.selected_pane < 3 {
+                    self.selected_pane += 1;
+                    self.selected_item = 0;
+                }
             },
             Input::Character(c) => {
                 match c {
                     'i' => {
+                        let insert_prompt = String::from(" New item: ");
                         let mut inp = String::new();
-                        let mut cur_inp_col = self.right_divider + 2;
-
+                        let mut cur_inp_col = 0;
+                        easy.set_cursor_visibility(CursorVisibility::Visible);
+                        easy.set_input_mode(easycurses::InputMode::Cooked);
                         loop {
-                            easy.move_rc(1, cur_inp_col);
-                            easy.print(&inp);
-                            easy.move_rc(1, cur_inp_col + inp.len() as i32);
-                            easy.print("_");
+                            easy.move_rc(row_count - 1,
+                                         cur_inp_col);
+                            easy.print(format!("{}{}", insert_prompt, inp));
+                            easy.move_rc(row_count - 1,
+                                         cur_inp_col + (inp.len() + insert_prompt.len()) as i32);
 
                             let input_char = easy.get_input().unwrap();
                             match input_char {
                                 Input::Character('\n')=> {
-                                    for _ in 0..inp.len() {
-                                        easy.delete_line();
-                                    }
+                                    easy.delete_line();
+                                    easy.set_cursor_visibility(CursorVisibility::Invisible);
                                     break
                                 }
                                 Input::Character(c) => {
@@ -102,18 +141,15 @@ impl PaneManager {
                                 }
                                 _ => {}
                             }
-
-                            easy.move_rc(1, cur_inp_col);
                         }
-
+                        easy.set_input_mode(easycurses::InputMode::Character);
                         kanban.todo.push(Item{name: inp});
                     },
                     _ => {}
                 }
             }
-            _ => {
-
-            }
+            _ => {}
         }
+        easy.refresh();
     }
 }
