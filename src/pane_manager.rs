@@ -1,8 +1,9 @@
 extern crate easycurses;
-use crate::Kanban;
+use crate::{Kanban, open_conban_file};
 use crate::Item;
 
 use easycurses::{EasyCurses, Input, CursorVisibility, ColorPair, Color};
+use std::io::Write;
 
 pub struct PaneManager {
     pub left_divider: i32,
@@ -149,12 +150,15 @@ impl PaneManager {
                         let mut s: Item = Item { name: "<none>".to_string() };
                         match self.selected_pane {
                             1 => {
+                                if kanban.todo.len() == 0 { return; }
                                 s = kanban.todo.remove(self.selected_item as usize);
                             }
                             2 => {
+                                if kanban.working.len() == 0 { return; }
                                 s = kanban.working.remove(self.selected_item as usize);
                             }
                             3 => {
+                                if kanban.done.len() == 0 { return; }
                                 s = kanban.done.remove(self.selected_item as usize);
                             }
                             _ => {}
@@ -275,5 +279,9 @@ impl PaneManager {
             }
             _ => {}
         }
+
+        let mut f = open_conban_file(true);
+        let s = serde_json::to_string(&kanban).unwrap();
+        f.write(s.as_bytes());
     }
 }
