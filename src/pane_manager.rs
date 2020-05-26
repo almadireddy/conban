@@ -6,257 +6,303 @@ use easycurses::{EasyCurses, Input, CursorVisibility, ColorPair, Color};
 use std::io::Write;
 
 pub struct PaneManager {
-    pub left_divider: i32,
-    pub right_divider: i32,
+    pub vertical_dividers: Vec<i32>,
     pub selected_pane: i32,
     pub selected_item: i32,
-    pub bottom_divider: i32
+    pub bottom_divider: i32,
+    pub row_count: i32,
+    pub col_count: i32,
 }
 
 impl PaneManager {
-    pub fn new(row_count: i32, col_count: i32) -> PaneManager {
-        let left_loc = col_count / 3;
-        let right_loc = (col_count / 3) * 2;
-
-        return PaneManager {
-            left_divider: left_loc,
-            right_divider: right_loc,
-            selected_pane: 1,
+    pub fn new(row_count: i32, col_count: i32, kanban: &Kanban) -> PaneManager {
+        let mut pane_m: PaneManager = PaneManager {
+            vertical_dividers: vec![],
+            selected_pane: 0,
             selected_item: 0,
-            bottom_divider: row_count - 2
+            bottom_divider: row_count - 2,
+            row_count,
+            col_count
         };
+
+        // find first pane with > 0 items.
+        for (pos, i) in (kanban.lists).iter().enumerate() {
+            let list = kanban.list_items.get(i).unwrap();
+
+            if list.len() > 0 {
+                pane_m.selected_pane = pos as i32;
+                break;
+            }
+        }
+
+        let length = kanban.lists.len();
+        for i in 0..length as i32 - 1 {
+            let col = col_count / length as i32 * (i + 1);
+            pane_m.vertical_dividers.push(col);
+        }
+
+        return pane_m;
     }
 
     fn render_lists(&mut self, easy: &mut EasyCurses, kanban: &mut Kanban) {
-        // TODO: find a way to generalize this
-        for (pos, i) in (&kanban.todo).iter().enumerate() {
-            easy.move_rc((pos as i32) + 2, 1);
+        for (pos, s) in (&kanban.lists).iter().enumerate() {
+            let list = kanban.list_items.get(s).unwrap();
+            let current_col : i32;
 
-            if pos == self.selected_item as usize && self.selected_pane == 1 {
-                easy.set_color_pair(ColorPair::new(Color::Magenta, Color::White));
-                easy.print(format!(" {} ", i.name));
-                easy.set_color_pair(ColorPair::new(Color::White, Color::Black));
+            if pos == 0 {
+                current_col = 1;
             } else {
-                easy.print(format!(" {} ", i.name));
+                current_col = self.vertical_dividers.get(pos - 1).unwrap() + 2;
             }
-        }
 
-        for (pos, i) in (&kanban.working).iter().enumerate() {
-            easy.move_rc((pos as i32 + 2), self.left_divider + 2);
+            for (num, i) in (list).iter().enumerate() {
+                easy.move_rc((num as i32) + 2, current_col - pos as i32);
 
-            if pos == self.selected_item as usize && self.selected_pane == 2 {
-                easy.set_color_pair(ColorPair::new(Color::Magenta, Color::White));
-                easy.print(format!(" {} ", i.name));
-                easy.set_color_pair(ColorPair::new(Color::White, Color::Black));
-            } else {
-                easy.print(format!(" {} ", i.name));
-            }
-        }
-
-        for (pos, i) in (&kanban.done).iter().enumerate() {
-            easy.move_rc((pos as i32) + 2, self.right_divider + 2);
-
-            if pos == self.selected_item as usize && self.selected_pane == 3 {
-                easy.set_color_pair(ColorPair::new(Color::Magenta, Color::White));
-                easy.print(format!(" {} ", i.name));
-                easy.set_color_pair(ColorPair::new(Color::White, Color::Black));
-            } else {
-                easy.print(format!(" {} ", i.name));
+                if num == self.selected_item as usize && self.selected_pane == pos as i32 {
+                    easy.set_color_pair(ColorPair::new(Color::Magenta, Color::White));
+                    easy.print(format!("{}", i.name));
+                    easy.set_color_pair(ColorPair::new(Color::White, Color::Black));
+                } else {
+                    easy.print(format!("{}", i.name));
+                }
             }
         }
     }
 
     fn render_panes(&self, easy: &mut EasyCurses) {
-        let (row_count, col_count) = easy.get_row_col_count();
-
         // render vertical dividers
-        for i in 0..row_count - 1 {
-            easy.move_rc(i, self.left_divider);
-            easy.print("\u{2503}");
-            easy.move_rc(i, self.right_divider);
-            easy.print("\u{2503}");
+        for col in &self.vertical_dividers {
+            for x in 0..self.row_count - 1 {
+                easy.move_rc(x, *col);
+                easy.insert_char(easycurses::constants::acs::vline());
+            }
         }
 
-        // render bottom divider
         easy.move_rc(self.bottom_divider, 0);
-        for i in 0..col_count {
-            if i == self.left_divider + 1 || i == self.right_divider + 1 {
-                easy.print("\u{253B}");
-            } else {
-                easy.print("\u{2501}");
-            }
+        for i in 0..self.col_count {
+            // render bottom
             easy.move_rc(self.bottom_divider, i);
+            if self.vertical_dividers.contains(&i) {
+                easy.insert_char(easycurses::constants::acs::btee());
+            } else {
+                easy.insert_char(easycurses::constants::acs::hline());
+            }
+
+            // render top
+            easy.move_rc(1, i);
+            if self.vertical_dividers.contains(&i) {
+                easy.insert_char(easycurses::constants::acs::plus());
+            } else {
+                easy.insert_char(easycurses::constants::acs::hline());
+            }
+        }
+    }
+
+    pub fn recompute_dividers(&mut self, kanban: &mut Kanban) {
+        let length = kanban.lists.len();
+        let mut v: Vec<i32> = vec![];
+
+        for i in 0..length as i32 - 1 {
+            let col = self.col_count / length as i32 * (i + 1);
+            v.push(col);
         }
 
-        // render top divider
-        easy.move_rc(1, 0);
-        for i in 0..col_count {
-            if i == self.left_divider + 1 || i == self.right_divider + 1 {
-                easy.print("\u{254B}");
+        self.vertical_dividers = v;
+    }
+
+    fn render_titles(&mut self, easy: &mut EasyCurses, kanban: &mut Kanban) {
+        let size_of_pane = self.col_count / kanban.lists.len() as i32;
+        for (pos, l) in (&kanban.lists).iter().enumerate() {
+            if pos == 0 {
+                easy.move_rc(0, (size_of_pane / 2) -
+                    (l.len() as i32 / 2));
             } else {
-                easy.print("\u{2501}");
+                easy.move_rc(0, (pos as i32 * size_of_pane) +
+                    (size_of_pane / 2) -
+                    (l.len() as i32/ 2) - (pos as i32 - 1));
             }
-            easy.move_rc(1, i);
+            easy.print(format!("{}", l));
         }
+
+        let last_deleted= format!("{} {}", "Last Deleted:", kanban.last_deleted.name);
+        easy.move_rc(self.row_count-1 , self.col_count / 2 - (last_deleted.len() / 2) as i32);
+        easy.print(last_deleted);
     }
 
     pub fn render(&mut self, easy: &mut EasyCurses, kanban: &mut Kanban) {
         easy.clear();
-        let (row_count, col_count) = easy.get_row_col_count();
-
-        // Render the titles (centered in pane)
-        let todo_title = String::from("Todo");
-        easy.move_rc(0, self.left_divider / 2 - (todo_title.len() as i32) / 2);
-        easy.print(todo_title);
-
-        let working_title = String::from("In progress");
-        easy.move_rc(0, (self.left_divider + self.right_divider) / 2 - (working_title.len() as
-            i32) / 2);
-        easy.print("Working");
-
-        let done_title = String::from("Done");
-        easy.move_rc(0, (self.right_divider + col_count) / 2 - (done_title.len() as i32) / 2);
-        easy.print("Done");
-
-        easy.move_rc(row_count-1 , self.right_divider + 2);
-        easy.print(format!("{} {}", "Last Deleted:", kanban.last_deleted.name));
-
+        self.render_titles(easy, kanban);
         self.render_lists(easy, kanban);
         self.render_panes(easy);
 
-        // TODO: Configurable keybindings
         match easy.get_input().unwrap() {
             Input::KeyLeft | Input::Character('h') => {
-                if self.selected_pane > 1 {
-                    self.selected_pane -= 1;
-                    self.selected_item = 0;
+                if self.selected_pane > 0 {
+                    let new_pane = self.selected_pane - 1;
+
+                    let l = kanban.lists.get(new_pane as usize).unwrap();
+                    let list = kanban.list_items.get(l).unwrap();
+                    if list.len() > 0 {
+                        self.selected_pane = new_pane;
+                        self.selected_item = 0;
+                    }
                 }
             },
             Input::KeyDown | Input::Character('j') => {
-                self.selected_item += 1;
+                let list_name = kanban.lists.get(self.selected_pane as usize).unwrap();
+                let list = kanban.list_items.get(list_name).unwrap();
+                if self.selected_item < (list.len() - 1) as i32 {
+                    self.selected_item += 1;
+                }
             }
             Input::KeyUp | Input::Character('k') => {
-                self.selected_item -= 1;
+                if self.selected_item > 0 {
+                    self.selected_item -= 1;
+                }
             }
             Input::KeyRight | Input::Character('l') => {
-                if self.selected_pane < 3 {
-                    self.selected_pane += 1;
-                    self.selected_item = 0;
+                if self.selected_pane < kanban.lists.len() as i32 - 1 {
+                    let new_pane = self.selected_pane + 1;
+
+                    let l = kanban.lists.get(new_pane as usize).unwrap();
+                    let list = kanban.list_items.get(l).unwrap();
+                    if list.len() > 0 {
+                        self.selected_pane = new_pane;
+                        self.selected_item = 0;
+                    }
                 }
             }
             Input::Character(c) => {
                 match c {
                     'x' => {
-                        let mut s: Item = Item { name: "<none>".to_string() };
-                        match self.selected_pane {
-                            1 => {
-                                if kanban.todo.len() == 0 { return; }
-                                s = kanban.todo.remove(self.selected_item as usize);
-                            }
-                            2 => {
-                                if kanban.working.len() == 0 { return; }
-                                s = kanban.working.remove(self.selected_item as usize);
-                            }
-                            3 => {
-                                if kanban.done.len() == 0 { return; }
-                                s = kanban.done.remove(self.selected_item as usize);
-                            }
-                            _ => {}
+                        let s: Item;
+                        let selected_list = kanban
+                            .lists
+                            .get(self.selected_pane as usize)
+                            .unwrap();
+                        let selected_items = kanban
+                            .list_items
+                            .get_mut(selected_list)
+                            .unwrap();
+
+                        if selected_items.len() == 0 {
+                            return
                         }
+
+                        s = selected_items.remove(self.selected_item as usize);
+
                         kanban.last_deleted = s;
+                    },
+                    'X' => {
+                        if kanban.lists.len() > 1 {
+                            let name = kanban
+                                .lists
+                                .get(self.selected_pane as usize)
+                                .unwrap();
+
+                            kanban.list_items.remove(name);
+                            kanban.lists.remove(self.selected_pane as usize);
+
+                            if self.selected_pane > 0 {
+                                self.selected_pane -= 1;
+                            }
+                        }
                     }
                     'w' => {
                         if self.selected_item > 0 {
-                            match self.selected_pane {
-                                1 => {
-                                    let s = kanban.todo.remove(self.selected_item as usize);
-                                    kanban.todo.insert(self.selected_item as usize - 1, s);
-                                    self.selected_item -= 1;
-                                }
-                                2 => {
-                                    let s = kanban.working.remove(self.selected_item as usize);
-                                    kanban.working.insert(self.selected_item as usize - 1, s);
-                                    self.selected_item -= 1;
-                                }
-                                3 => {
-                                    let s = kanban.done.remove(self.selected_item as usize);
-                                    kanban.done.insert(self.selected_item as usize - 1, s);
-                                    self.selected_item -= 1;
-                                }
-                                _ => {}
-                            }
+                            let list_name = kanban
+                                .lists
+                                .get(self.selected_pane as usize)
+                                .unwrap();
+
+                            let items = kanban
+                                .list_items
+                                .get_mut(list_name)
+                                .unwrap();
+                            let s = items.remove(self.selected_item as usize);
+                            items.insert(self.selected_item as usize - 1, s);
+                            self.selected_item -= 1;
                         }
                     }
                     's' => {
-                        match self.selected_pane {
-                            1 => {
-                                if self.selected_item < kanban.todo.len() as i32 - 1 {
-                                    let s = kanban.todo.remove(self.selected_item as usize);
-                                    kanban.todo.insert(self.selected_item as usize + 1, s);
-                                    self.selected_item += 1;
-                                }
-                            }
-                            2 => {
-                                if self.selected_item < kanban.working.len() as i32 - 1 {
-                                    let s = kanban.working.remove(self.selected_item as usize);
-                                    kanban.working.insert(self.selected_item as usize + 1, s);
-                                    self.selected_item += 1;
-                                }
-                            }
-                            3 => {
-                                if self.selected_item < kanban.done.len() as i32 - 1 {
-                                    let s = kanban.done.remove(self.selected_item as usize);
-                                    kanban.done.insert(self.selected_item as usize + 1, s);
-                                    self.selected_item += 1;
-                                }
-                            }
-                            _ => {}
+                        let list_name = kanban
+                            .lists
+                            .get(self.selected_pane as usize)
+                            .unwrap();
+                        let items = kanban
+                            .list_items
+                            .get_mut(list_name)
+                            .unwrap();
+
+                        if self.selected_item < items.len() as i32 - 1 {
+                            let s = items.remove(self.selected_item as usize);
+                            items.insert(self.selected_item as usize + 1, s);
+                            self.selected_item += 1;
                         }
                     }
-                    'd' => {
-                        match self.selected_pane {
-                            1 => {
-                                let s = kanban.todo.remove(self.selected_item as usize);
-                                kanban.working.push(s);
-                                self.selected_pane += 1;
-                                self.selected_item = kanban.working.len() as i32 - 1;
+                    x if x == 'a' || x == 'd' => {
+                        let s: Item;
+                        let mut changer : i32 = 1;
+                        if x == 'a' {
+                            if self.selected_pane == 0 {
+                                return;
                             }
-                            2 => {
-                                let s = kanban.working.remove(self.selected_item as usize);
-                                kanban.done.push(s);
-                                self.selected_pane += 1;
-                                self.selected_item = kanban.done.len() as i32 - 1;
+                            changer = -1;
+
+                        } else if x == 'd' {
+                            if self.selected_pane == kanban.lists.len() as i32 - 1 {
+                                return
                             }
-                            _ => {}
+                            changer = 1;
                         }
-                    }
-                    'a' => {
-                        match self.selected_pane {
-                            2 => {
-                                let s = kanban.working.remove(self.selected_item as usize);
-                                kanban.todo.push(s);
-                                self.selected_pane -= 1;
-                                self.selected_item = kanban.todo.len() as i32 - 1;
-                            }
-                            3 => {
-                                let s = kanban.done.remove(self.selected_item as usize);
-                                kanban.working.push(s);
-                                self.selected_pane -= 1;
-                                self.selected_item = kanban.working.len() as i32 - 1;
-                            }
-                            _ => {}
+
+                        {
+                            let current_list = kanban
+                                .lists
+                                .get(self.selected_pane as usize)
+                                .unwrap();
+
+                            let current_items = kanban
+                                .list_items
+                                .get_mut(current_list)
+                                .unwrap();
+
+                            s = current_items.remove(self.selected_item as usize);
                         }
+
+                        {
+                            let next_list = kanban
+                                .lists
+                                .get((self.selected_pane + changer) as usize)
+                                .unwrap();
+
+                            let next_items = kanban
+                                .list_items
+                                .get_mut(next_list)
+                                .unwrap();
+
+                            next_items.push(s);
+                            self.selected_item = next_items.len() as i32 - 1;
+                        }
+                        self.selected_pane += changer;
                     }
-                    'i' => {
-                        let insert_prompt = String::from(" New item: ");
+                    x if x =='i' || x == '+' || x == 'I' => {
+                        let insert_prompt: String;
+                        if x == 'i' {
+                            insert_prompt = String::from(" New item: ");
+                        } else {
+                            insert_prompt = String::from(" New list: ");
+                        }
+
                         let mut inp = String::new();
 
                         easy.set_cursor_visibility(CursorVisibility::Visible);
                         easy.set_input_mode(easycurses::InputMode::Cooked);
                         loop {
-                            easy.move_rc(row_count - 1, 0);
+                            easy.move_rc(self.row_count - 1, 0);
                             easy.print(format!("{}{}", insert_prompt, inp));
-                            easy.move_rc(row_count - 1, (inp.len() + insert_prompt.len()) as i32);
+                            easy.move_rc(self.row_count - 1,
+                                         (inp.len() + insert_prompt.len()) as i32);
 
                             let input_char = easy.get_input().unwrap();
                             match input_char {
@@ -272,7 +318,18 @@ impl PaneManager {
                             }
                         }
                         easy.set_input_mode(easycurses::InputMode::Character);
-                        kanban.todo.push(Item{name: inp});
+                        if x == 'i' {
+                            let first_list = kanban.lists.get(0).unwrap();
+                            let first_items = kanban
+                                .list_items
+                                .get_mut(first_list)
+                                .unwrap();
+                            first_items.push(Item{name: inp});
+                        } else {
+                            kanban.lists.push(inp.clone());
+                            kanban.list_items.insert(inp, Vec::new());
+                            self.recompute_dividers(kanban);
+                        }
                     },
                     _ => {}
                 }

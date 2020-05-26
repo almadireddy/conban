@@ -2,39 +2,33 @@ extern crate easycurses;
 extern crate dirs;
 extern crate serde;
 extern crate serde_json;
-extern crate ctrlc;
 
 mod pane_manager;
 
-use easycurses::{EasyCurses, TimeoutMode, CursorVisibility, Input, InputMode, Color, ColorPair};
-use std::fmt;
-use std::process::exit;
-use std::path::{PathBuf};
+use easycurses::{EasyCurses, CursorVisibility, InputMode, Color, ColorPair};
 use std::fs::{File, OpenOptions};
-use std::io::{Read, Write};
+use std::io::{Read};
 use pane_manager::PaneManager;
 use serde::{Serialize, Deserialize};
-use serde_json::{Result};
+use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Item {
+pub struct Item {
     name: String
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-struct Kanban {
-    pub todo: Vec<Item>,
-    pub working: Vec<Item>,
-    pub done: Vec<Item>,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Kanban {
+    pub lists: Vec<String>,
+    pub list_items: HashMap<String, Vec<Item>>,
     pub last_deleted: Item
 }
 
 impl Kanban {
     pub fn new() -> Kanban {
         return Kanban {
-            todo: Vec::new(),
-            working: Vec::new(),
-            done: Vec::new(),
+            lists: Vec::new(),
+            list_items: HashMap::new(),
             last_deleted: Item{name: String::from("<none>") }
         };
     }
@@ -52,7 +46,7 @@ fn open_conban_file(overwrite: bool) -> File {
             .truncate(true)
             .open(path.as_path()).unwrap();
     }
-    return return OpenOptions::new()
+    return OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
@@ -78,7 +72,6 @@ fn main() {
     easy.set_cursor_visibility(CursorVisibility::Invisible);
 
     let (row_count, col_count) = easy.get_row_col_count();
-
     let mut kanban: Kanban = load_kanban();
 
     easy.set_keypad_enabled(true);
@@ -86,7 +79,9 @@ fn main() {
     easy.set_color_pair(ColorPair::new(Color::White, Color::Black));
     easy.set_bold(false);
 
-    let mut pane = PaneManager::new(row_count, col_count);
+    let mut pane = PaneManager::new(row_count,
+                                    col_count,
+                                    &kanban);
 
     loop {
         pane.render(&mut easy, &mut kanban);
