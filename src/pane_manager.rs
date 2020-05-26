@@ -56,6 +56,9 @@ impl PaneManager {
             }
 
             for (num, i) in (list).iter().enumerate() {
+                // the position is subtracted because drawing the vertical bars of
+                // the dividers causes the characters on the bars' right to be pushed down
+                // by one. This subtraction allows the alignment to stay the same.
                 easy.move_rc((num as i32) + 2, current_col - pos as i32);
 
                 if num == self.selected_item as usize && self.selected_pane == pos as i32 {
@@ -120,6 +123,7 @@ impl PaneManager {
                 easy.move_rc(0, (pos as i32 * size_of_pane) +
                     (size_of_pane / 2) -
                     (l.len() as i32/ 2) - (pos as i32 - 1));
+                // subtracting pos at the end again to compensate for vertical bars as above
             }
             easy.print(format!("{}", l));
         }
