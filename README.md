@@ -10,8 +10,7 @@ you like, but I plan to ship a script to auto install in the future.
 
 ## Keybindings
 
-You can look at the source [here](https://github.com/almadireddy/conban/blob
-/master/src/pane_manager.rs#L138) to edit them on your machine (configurable
+You can look at the source [here](https://github.com/almadireddy/conban/blob/e78603ccf9b2d3963ec23b391e597c464438c114/src/pane_manager.rs#L139) to edit them on your machine (configurable
  keybindings coming soon!).
  
 There are a couple actions which have multiple bindings, and they're shown
