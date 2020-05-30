@@ -114,6 +114,12 @@ impl PaneManager {
     }
 
     fn render_titles(&mut self, easy: &mut EasyCurses, kanban: &mut Kanban) {
+        if kanban.lists.len() == 0 {
+            let message = "There are no lists. 'I' or '+' to make one.";
+            easy.move_rc(0, self.col_count / 2 - (message.len() as i32/ 2));
+            easy.print(message);
+            return;
+        }
         let size_of_pane = self.col_count / kanban.lists.len() as i32;
         for (pos, l) in (&kanban.lists).iter().enumerate() {
             if pos == 0 {
