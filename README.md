@@ -2,11 +2,25 @@
 
 Written in rust, made for your productivity. 
 
-Still very much a work in progress, has a couple bugs and inconveniences
-, mostly when empty lists are present.
+Still very much a work in progress, has a couple bugs and inconveniences, mostly when empty lists are present.
  
 Currently, you'll need to install manually by cloning and setting it up how
 you like, but I plan to ship a script to auto install in the future.
+
+
+## Installing
+To install from the first time, run
+
+```bash
+cargo install --path . 
+```
+from inside this repo.
+
+To reinstall/update: 
+
+```bash
+cargo install --path . --force
+```
 
 ## Keybindings
 
