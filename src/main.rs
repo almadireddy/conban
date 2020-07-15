@@ -6,15 +6,16 @@ extern crate tui;
 mod pane_manager;
 
 use std::fs::{File, OpenOptions};
-use pane_manager::PaneManager;
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use tui::{Terminal, Frame};
 use tui::backend::CrosstermBackend;
 use std::io;
-use tui::widgets::{Widget, Block, Borders, List, Text, ListState};
-use tui::layout::{Layout, Constraint, Direction, Rect};
-use tui::{style::{Style, Color, Modifier}};
+use tui::widgets::{Widget, Block, Borders, List, Text, ListState, Paragraph};
+use tui::{
+    layout::{Layout, Constraint, Direction, Rect, Alignment},
+    style::{Style, Color, Modifier}
+};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event as CEvent, KeyCode},
     execute,
@@ -27,6 +28,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+use std::io::Stdout;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Item {
@@ -62,6 +64,7 @@ fn open_conban_file(overwrite: bool) -> File {
             .truncate(true)
             .open(path.as_path()).unwrap();
     }
+
     return OpenOptions::new()
         .read(true)
         .write(true)
@@ -89,20 +92,7 @@ enum Event<I> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // let mut easy = EasyCurses::initialize_system().unwrap();
-    // easy.set_cursor_visibility(CursorVisibility::Invisible);
-    //
-    // let (row_count, col_count) = easy.get_row_col_count();
     let mut kanban: Kanban = load_kanban();
-    //
-    // easy.set_keypad_enabled(true);
-    // easy.set_input_mode(InputMode::Character);
-    // easy.set_color_pair(ColorPair::new(Color::White, Color::Black));
-    // easy.set_bold(false);
-    //
-    // let mut pane = PaneManager::new(row_count,
-    //                                 col_count,
-    //                                 &kanban);
     enable_raw_mode()?;
 
     let mut stdout = stdout();
@@ -135,17 +125,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut selected_list = 0;
 
     loop {
-        terminal.draw(|mut f| {
+        let x = terminal.draw(|mut f: Frame<CrosstermBackend<Stdout>>| {
             for (pos, list) in (&kanban.lists).iter().enumerate() {
                 let first_list = list;
                 let i = (&kanban.list_items).get(first_list).unwrap();
-                let l = List::new(i.iter().map(|it|
+                let text_items = i.iter().map(|it|
                     Text::Raw(std::borrow::Cow::Borrowed(it.name.as_str()))
-                )).block(Block::default().title(list.as_ref()).borders(Borders::TOP))
-                    .style(Style::default().fg(Color::White))
-                    .highlight_style(Style::default().modifier(Modifier::ITALIC))
-                    .highlight_symbol(">> ");
-                let area = Rect::new(pos as u16 * 50, 0, 49, 10);
+                );
+
+                let l = List::new(text_items).block(
+                    Block::default().title(list.as_ref()).borders(Borders::TOP))
+                        .style(Style::default().fg(Color::White))
+                        .highlight_style(Style::default().modifier(Modifier::ITALIC))
+                        .highlight_symbol(">> ");
+                let area = Rect::new(pos as u16 * 25, 0, 24, 10);
                 let mut state = ListState::default();
                 if selected_list == pos {
                     state.select(Some(selected as usize));
@@ -166,7 +159,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     break;
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
-                    let current_list = kanban.lists.get(selected).unwrap();
+                    let current_list = kanban.lists.get(selected_list).unwrap();
                     let current_list_items = kanban.list_items.get(current_list).unwrap();
 
                     if selected < current_list_items.len() - 1 {
@@ -179,13 +172,21 @@ fn main() -> Result<(), Box<dyn Error>> {
                     }
                 }
                 KeyCode::Right | KeyCode::Char('l')  => {
-                    if selected_list < (&kanban.lists).len() {
+                    if selected_list < (&kanban.lists).len() - 1 {
                         selected_list += 1;
+                    }
+                    let new_list_len = kanban.lists.get(selected_list).unwrap().len();
+                    if selected > new_list_len {
+                        selected = new_list_len;
                     }
                 }
                 KeyCode::Left | KeyCode::Char('h')  => {
                     if selected_list > 0 {
                         selected_list -= 1;
+                    }
+                    let new_list_len = kanban.lists.get(selected_list).unwrap().len();
+                    if selected > new_list_len {
+                        selected = new_list_len;
                     }
                 }
                 _ => {}
